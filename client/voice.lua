@@ -30,7 +30,7 @@ local function setTalking(value)
     for _, handler in ipairs(listeners) do
         local ok, err = pcall(handler, value)
         if not ok then
-            print(("[qb-hud:voice] onChange handler errored: %s"):format(tostring(err)))
+            Kora.logging.error('voice.on_change_failed', 'Voice onChange handler errored', { error = tostring(err) })
         end
     end
 end
@@ -63,7 +63,7 @@ local function setMode(value)
     for _, handler in ipairs(modeListeners) do
         local ok, err = pcall(handler, mode)
         if not ok then
-            print(("[qb-hud:voice] onModeChange handler errored: %s"):format(tostring(err)))
+            Kora.logging.error('voice.on_mode_change_failed', 'Voice onModeChange handler errored', { error = tostring(err) })
         end
     end
 end

@@ -39,9 +39,15 @@ local function boot(tweak)
 
     readConfig(nil)
     if tweak then tweak(Config.hud.minimapLayout, Config.hud) end
-    _G.Kora = nil
+    game.warningEvents = {}
+    _G.Kora = { logging = {
+        warn = function(event, message, fields)
+            game.warningEvents[#game.warningEvents + 1] = { event = event, message = message, fields = fields }
+            game.warnings[#game.warnings + 1] = tostring(fields and fields.detail)
+        end,
+    } }
     _G.json = { encode = encode }
-    _G.print = function(...) game.warnings[#game.warnings + 1] = table.concat({ ... }, ' ') end
+    _G.print = function() error('minimap.lua must log through Kora.logging, not print') end
     _G.GetGameTimer = function() return game.t end
     _G.GetActiveScreenResolution = function() return game.w, game.h end
     _G.GetAspectRatio = function() return game.w / game.h end
@@ -328,6 +334,8 @@ harness.test('a dictionary that never streams warns, keeps stock and leaves noth
     harness.assertEqual(native('clip') + native('add') + native('place') + native('bigmap'), 0, 'no clip, texture, rect or bigmap call')
     harness.assertFalse(HudMinimap.isApplied(), 'nothing applied')
     harness.assertTrue(#game.warnings >= 1 and game.warnings[1]:find('kora_hud_squaremap', 1, true), 'a warning names the dictionary')
+    harness.assertEqual(game.warningEvents[1].event, 'minimap.problem', 'warning uses the stable logger event name')
+    harness.assertTrue(type(game.warningEvents[1].fields) == 'table' and game.warningEvents[1].fields.detail ~= nil, 'dynamic detail travels in fields')
 end)
 
 harness.test('a failed apply is retried a limited number of times, then succeeds once the dictionary streams', function()

@@ -90,7 +90,7 @@ RegisterNUICallback('kora_hud:ready', function(_, cb)
 
     local ok, err = pcall(sendInitialState)
     if not ok then
-        print(('[kora_hud] kora_hud:ready initial push failed: %s'):format(tostring(err)))
+        Kora.logging.error('hud.initial_push_failed', 'Initial HUD state push failed', { error = tostring(err) })
     end
 end)
 
@@ -205,7 +205,9 @@ local minimapHooks = {}
 local function emit(name, ...)
     if type(TriggerEvent) ~= 'function' then return end
     local ok, err = pcall(TriggerEvent, name, ...)
-    if not ok then print(('[kora_hud] %s handler failed: %s'):format(name, tostring(err))) end
+    if not ok then
+        Kora.logging.error('hud.event_handler_failed', 'A HUD event handler failed', { handler = tostring(name), error = tostring(err) })
+    end
 end
 
 -- Assigned below, once the KVP helpers it needs exist.

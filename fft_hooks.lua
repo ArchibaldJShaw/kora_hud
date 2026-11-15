@@ -59,7 +59,9 @@ if wrapped then
     SendNUIMessage = function(message, ...)
         if session() then
             local ok, err = pcall(record, message)
-            if not ok then print('[kora_hud:fft] observer failed: ' .. tostring(err)) end
+            if not ok then
+                Kora.logging.error('fft.observer_failed', 'FFT observer failed', { error = tostring(err) })
+            end
         end
         return original(message, ...)
     end

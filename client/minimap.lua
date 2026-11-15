@@ -233,7 +233,7 @@ local function now()
 end
 
 local function warn(message)
-    print('[kora_hud] minimap: ' .. message)
+    Kora.logging.warn('minimap.problem', 'Minimap layout problem', { detail = tostring(message) })
 end
 
 -- What this resource has changed in the game, nil while it has changed nothing.

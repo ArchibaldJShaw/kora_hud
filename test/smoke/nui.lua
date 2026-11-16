@@ -228,6 +228,8 @@ local function loadHud(opts)
 
     _G.Kora = {
         nui = FORBIDDEN_NUI,
+        locale = { getResourceLocale = function() return opts.locale end },
+        require = { current = function(path) return dofile(repoRoot .. path) end },
         cache = {
             onChange = function(key, handler)
                 cacheHandlers[key] = cacheHandlers[key] or {}
@@ -264,7 +266,11 @@ local function loadHud(opts)
     -- client/uiregistry.lua loads before hud.lua (fxmanifest order).
     _G.HudUi = nil
     if opts.noRegistry ~= true then dofile(repoRoot .. 'client/uiregistry.lua') end
+    _G.RegisterNetEvent = _G.AddEventHandler
     local ok, err = pcall(dofile, hudSource)
+    if ok and opts.deferNuiReady ~= true then
+        callbacks['kora_hud:ready']({}, function() end)
+    end
 
     local function actions()
         local names = {}
@@ -380,6 +386,24 @@ local function loadHud(opts)
         end,
     }
 end
+
+harness.test('HUD waits for the browser and then sends the bundled English catalog', function()
+    local hud = loadHud({ deferNuiReady = true })
+    harness.assertTrue(hud.loaded, tostring(hud.loadError))
+    hud.tick()
+    hud.fire('kora_lib:client:localeChanged')
+    hud.fire('kora_hud:client:seatbeltSound', 'test.wav', 0.5)
+    harness.assertEqual(#hud.sent, 0, 'startup tick, locale event and seatbelt sound must await the browser')
+    hud.callbacks['kora_hud:ready']({}, function() end)
+    for _, message in ipairs(hud.sent) do
+        if message.action == 'kora_hud:locales' then
+            harness.assertEqual(type(message.data), 'table')
+            harness.assertTrue(next(message.data) ~= nil, 'English catalog is empty')
+            return
+        end
+    end
+    error('ready callback did not send the catalog')
+end)
 
 harness.test('kora_hud registers kora_hud:ready on the raw native, not through the kora_lib proxy', function()
     local hud = loadHud()
@@ -1569,9 +1593,7 @@ harness.test('own stop restores the owned minimap state before releasing its sca
     harness.assertEqual(hud.nativeCalls[before + 4].kind, 'release', 'release after restoring consumers')
     harness.assertEqual(hud.nativeCalls[before + 4].phase, 'onResourceStop', 'release during synchronous pre-stop')
     harness.assertEqual(hud.nativeCalls[before + 4].value, 'scaleform:minimap', 'release exactly the requested handle')
-    harness.assertEqual(hud.sent[1].action, 'kora_hud:layoutMode', 'stop closes the existing editor wire')
-    harness.assertEqual(hud.sent[1].data, false, 'stop exits editing mode')
-    harness.assertEqual(hud.lastVisibility(), false, 'stop sends the existing hidden state')
+    harness.assertEqual(#hud.sent, 0, 'stop releases native state without sending to the closing UI frame')
     local stopped = #hud.nativeCalls
     local sampled = hud.voiceSamples()
     hud.stopResource('kora_hud')

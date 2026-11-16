@@ -44,8 +44,10 @@
 -- reasoning and same fix as kora_loading/client.lua and kora_inventory/client/ui.lua.
 -- Kora.cache/Kora.status stay on the proxy; kora_theme's imported bridge owns theme
 -- delivery for this frame.
+local nuiReady = false
+
 local function send(action, data)
-    SendNUIMessage({ action = action, data = data })
+    if nuiReady then SendNUIMessage({ action = action, data = data }) end
 end
 
 -- Forward-declared so the kora_hud:ready callback can be registered as the very
@@ -75,13 +77,14 @@ local radarVehicle
 -- already believes it sent `visible` once. The NUI is left stuck on its
 -- DEFAULT_VISIBLE=false forever, with nothing left to nudge it. This callback
 -- is the reliable half: web/src/lib/hudState.tsx pings it once mounted,
--- guaranteeing a fresh push arrives after the listener is live, regardless of
--- whether the best-effort send in CreateThread below did.
+-- so the first snapshot reaches a live listener. Regular updates stay
+-- suppressed until that first callback.
 RegisterNUICallback('kora_hud:ready', function(_, cb)
     -- Answer first, unconditionally: a raw handler that errors before calling
     -- cb leaves the page's fetch promise hanging forever. Kora.nui.register-
     -- Callback used to pcall + cb({}) on our behalf; that safety net is ours
     -- now that we register directly.
+    nuiReady = true
     cb({})
 
     -- nil only if this chunk aborted between here and the assignment below;
@@ -1606,6 +1609,7 @@ end
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     resourceStopping = true
+    nuiReady = false
     forcedHidden = true
     refreshVisibility()
     if minimapScaleform then
@@ -1704,11 +1708,23 @@ AddEventHandler('onClientResourceStop', function(resource)
     if HudUi and resource ~= GetCurrentResourceName() then HudUi.dropOwner(resource) end
 end)
 
+local function sendLocales()
+    if not nuiReady then return end
+    local locales = Kora.locale.getResourceLocale(GetCurrentResourceName())
+        or Kora.require.current('locales/en.lua')
+    send('kora_hud:locales', locales)
+end
+
+AddEventHandler('kora_lib:client:localeChanged', sendLocales)
+AddEventHandler('kora_hud:client:seatbeltSound', function(file, volume)
+    send('kora_hud:seatbeltSound', { file = file, volume = volume })
+end)
+
 -- Assignment, NOT `local function`: that would declare a fresh local shadowing
 -- the forward declaration at the top of the file, silently leaving the
 -- kora_hud:ready callback's upvalue nil.
 sendInitialState = function()
-    send('kora_hud:locales', Kora.locale.getResourceLocale())
+    sendLocales()
     local savedLayout = readLayout()
     if minimapHooks.sync then minimapHooks.sync(savedLayout.hidden.minimap == true) end
     send("kora_hud:config", {
@@ -1815,10 +1831,6 @@ CreateThread(function()
     -- Only if the load-time attempt above lost the race with a kora_lib restart.
     if not seeded then pcall(seedFromCache) end
 
-    -- Best-effort: lost if the page hasn't mounted yet (the kora_hud:ready
-    -- callback at the top of this file covers that). pcall'd so a failure here
-    -- can't abort the thread before the scheduler below is armed.
-    pcall(sendInitialState)
     -- Covers the inverse startup order too: if kora_chat was already running,
     -- give it the saved composer position without waiting for the next layout
     -- confirmation. If it starts later it performs the same read itself.

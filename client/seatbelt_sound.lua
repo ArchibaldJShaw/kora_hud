@@ -10,8 +10,7 @@
 -- the player is still seated -- entering or leaving a vehicle is silent.
 --
 -- Every Config value is read when a sound plays, never cached at load.
--- SendNUIMessage is the raw native on purpose (see the NOTE in client/hud.lua):
--- this resource owns its own NUI frame.
+-- client/hud.lua sends NUI sounds once the page is ready.
 local buckled = LocalPlayer.state.seatbelt == true
 
 local DEFAULT_NATIVE = {
@@ -52,7 +51,7 @@ local function play(isBuckle)
 
     local file = isBuckle and (cfg.buckleFile or 'seatbelt_buckle.wav')
         or (cfg.unbuckleFile or 'seatbelt_unbuckle.wav')
-    SendNUIMessage({ action = 'kora_hud:seatbeltSound', data = { file = file, volume = volume } })
+    TriggerEvent('kora_hud:client:seatbeltSound', file, volume)
 end
 
 AddEventHandler('seatbelt:client:ToggleSeatbelt', function(enabled)

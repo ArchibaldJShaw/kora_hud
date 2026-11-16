@@ -16,7 +16,10 @@ local function load(sound, opts)
     _G.PlayerPedId = function() return 1 end
     _G.IsPedInAnyVehicle = function() return fixture.inVehicle end
     _G.AddEventHandler = function(name, fn) handlers[name] = fn end
-    _G.SendNUIMessage = function(msg) nui[#nui + 1] = msg end
+    _G.TriggerEvent = function(event, file, volume)
+        harness.assertEqual(event, 'kora_hud:client:seatbeltSound')
+        nui[#nui + 1] = { action = 'kora_hud:seatbeltSound', data = { file = file, volume = volume } }
+    end
     _G.PlaySoundFrontend = function(...) frontend[#frontend + 1] = { ... } end
     assert(loadfile(repoRoot .. 'client/seatbelt_sound.lua'))()
     fixture.toggle = handlers['seatbelt:client:ToggleSeatbelt']

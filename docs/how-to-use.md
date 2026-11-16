@@ -68,7 +68,7 @@ Splitting by how often a value changes — not by what it means — is deliberat
 
 ## NUI → Lua callbacks (the only two with real logic)
 
-- `kora_hud:ready` — the React page pings this once mounted. Lua answers `cb({})` unconditionally first, then re-sends the full initial state (config/visibility/compat/layout/uiElements). This exists because `SendNUIMessage` behaves like `postMessage`: a message sent before the page's listener is attached is lost, not queued, which would otherwise strand every `ensure kora_hud` done while a player is already logged in.
+- `kora_hud:ready` — the React page pings this once mounted. Lua acknowledges the ping, then sends the full snapshot with labels, config, visibility, compatibility settings and layout. HUD messages and seatbelt audio start after the ping. The HUD uses the bundled English labels when the selected language has no HUD catalog.
 - `kora_hud:uiPreview` — live drag preview while the `/ui` editor is open, `{ elements: { [id]: { x, y, scale, hidden, settings } }, final? }`. Re-validated against each element's own schema (`HudUi.layoutFor`) before being relayed to its owner as the local event `kora_hud:ui:apply(owner, id, layout, "preview")`. The minimap only applies on `final === true` (the drop), never on every drag frame.
 - `kora_hud:finishLayout` — `{ confirmed, offsets, scales, justifications, hidden, settings, gaugesBottomAnchored, minimapVehicleOnly }` from Confirm/Cancel. Only `confirmed === true` persists anything (re-validated, same as every value kora_hud reads back from its own KVP). Either way this closes the editor and notifies every registered owner.
 
